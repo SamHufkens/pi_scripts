@@ -11,4 +11,4 @@ while True:
         time.sleep(0.3) 
     else:
         print("Button released")
-        time.sleep(0.3)
+        time.sleep(0.3) 
