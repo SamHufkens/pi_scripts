@@ -1,6 +1,8 @@
 import wiringpi
 import time
 import spidev
+import requests
+import json
 from classLCD import LCD
 
 def stepmotor(SEQ, pin3, pin4, pin6, pin9):
@@ -33,10 +35,32 @@ def DeactivateLCD():
     wiringpi.digitalWrite(pin_CS_lcd, 1)      
     time.sleep(0.000005)
 
-def ResetLCD():
-    wiringpi.digitalWrite(PIN_OUT['RST'], 0)  
-    time.sleep(0.000005)
-    wiringpi.digitalWrite(PIN_OUT['RST'], 1)
+trap_triggerd = False
+trap_count = 0
+
+
+def send_ubeac_data(distance):
+    global status, trap_count
+    url = "http://samhufkens.hub.ubeac.io/iotessSam"
+    uid = "iotessSam"
+    data = {
+            "id": uid,
+            "sensors": [{
+                "id": "mouse_trap_status",
+                "data": {
+                    "count": trap_count,
+                    "distance": distance
+                }}   
+            ]
+        }
+    headers = {"Content-Type": "application/json"}
+    res = requests.post(url, headers=headers, json=data)
+
+    if res.status_code == 200:
+        print("Data Succesfully Send To uBeac")
+    else:
+        print("Something Went Wrong With uBeac!")
+        
 
 
 # PINS stepmotor
@@ -94,17 +118,18 @@ sequence = [
     [0, 0, 0, 1]
 ]
 
-distances = [1, 2, 3, 4, 5, 6, 7, 8]
+distances = [21, 20, 22, 23, 24, 25, 26, 27, 28, 29, 30]
 
 lcd_1 = LCD(PIN_OUT)
 
-ResetLCD()
+
 lcd_1.clear()
 lcd_1.set_backlight(1)
 ActivateLCD()
 lcd_1.put_string('Trap Active')
 lcd_1.refresh()
 DeactivateLCD()
+
 
 while True:
     wiringpi.digitalWrite(W1, 1)
@@ -120,13 +145,19 @@ while True:
     time.sleep(0.5)
 
     
-    if distance in distances or wiringpi.digitalRead(W0) == 0:
+    if distance in distances or wiringpi.digitalRead(W0) == 0 and not trap_triggerd:
         stepmotor(sequence, W3, W4, W6, W9)
         ActivateLCD()
         lcd_1.clear()
         lcd_1.refresh()
         lcd_1.set_backlight(0)
         DeactivateLCD()
+
+
+        trap_triggerd = True
+        trap_count += 1
+        send_ubeac_data(distance)
+        print("Mouse Caught!")
         break
 
-print("Mouse Caught!")
+
